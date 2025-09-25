@@ -19,6 +19,26 @@ resultados = pd.read_csv('RESULTADOS_SP_SAO_PAULO_2024.csv')
 
 dados_escolas.columns = dados_escolas.columns.str.lower().str.replace(' ', '_')
 
+from geopy.geocoders import Nominatim
+
+geolocator = Nominatim(user_agent="geoapi")
+
+def obter_bairro_regiao(lat, lon):
+    try:
+        location = geolocator.reverse((lat, lon), language='pt')
+        endereco = location.raw.get('address', {})
+        bairro = endereco.get('suburb') or endereco.get('neighbourhood')
+        zona = endereco.get('city_district') or endereco.get('region')
+        return pd.Series([bairro, zona])
+    except:
+        return pd.Series([None, None])
+
+dados_escolas[['bairro', 'regiao']] = dados_escolas.apply(
+    lambda row: obter_bairro_regiao(row['latitude'], row['longitude']),
+    axis=1
+)
+
+
 resultados.columns = resultados.columns.str.lower().str.replace(' ', '_')
 #esultados.groupby
 

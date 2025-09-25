@@ -5,4 +5,4 @@ numpy
 seaborn
 matplotlib
 pydeck
-geopy.geocoders
+geopy

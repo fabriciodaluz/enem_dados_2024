@@ -14,29 +14,12 @@ st.markdown(
 )
 st.divider()
 
-dados_escolas = pd.read_csv('Análise - Tabela da lista das escolas - Detalhado.csv')
+dados_escolas = pd.read_csv('escolas_com_google_bairro_regiao.csv')
+#dados_escolas = pd.read_csv('Análise - Tabela da lista das escolas - Detalhado.csv')
 resultados = pd.read_csv('RESULTADOS_SP_SAO_PAULO_2024.csv')
 
+
 dados_escolas.columns = dados_escolas.columns.str.lower().str.replace(' ', '_')
-
-from geopy.geocoders import Nominatim
-
-geolocator = Nominatim(user_agent="geoapi")
-
-def obter_bairro_regiao(lat, lon):
-    try:
-        location = geolocator.reverse((lat, lon), language='pt')
-        endereco = location.raw.get('address', {})
-        bairro = endereco.get('suburb') or endereco.get('neighbourhood')
-        zona = endereco.get('city_district') or endereco.get('region')
-        return pd.Series([bairro, zona])
-    except:
-        return pd.Series([None, None])
-
-dados_escolas[['bairro', 'regiao']] = dados_escolas.apply(
-    lambda row: obter_bairro_regiao(row['latitude'], row['longitude']),
-    axis=1
-)
 
 
 resultados.columns = resultados.columns.str.lower().str.replace(' ', '_')
@@ -52,6 +35,8 @@ resultados_escolas = resultados_escolas.dropna(subset=['latitude', 'longitude'])
 resultados_escolas['latitude'] = pd.to_numeric(resultados_escolas['latitude'], errors='coerce')
 resultados_escolas['longitude'] = pd.to_numeric(resultados_escolas['longitude'], errors='coerce')
 resultados_escolas = resultados_escolas.rename(columns={'nu_nota_cn': 'ciências_da_natureza','nu_nota_ch':'ciências_humanas','nu_nota_lc':'linguagens_e_códigos','nu_nota_mt':'matemática','nu_nota_redacao':'redação'})
+
+
 
 colunas_para_converter = [
     'ciências_da_natureza',
@@ -89,7 +74,66 @@ resultados_escolas = resultados_escolas.sort_values(by='média_geral', ascending
 resultados_escolas.reset_index(drop=True, inplace=True)
 resultados_escolas.index += 1
 
-resultados_escolas = resultados_escolas[['escola','categoria_administrativa','porte_da_escola','endereço','telefone','ciências_da_natureza','ciências_humanas','linguagens_e_códigos','matemática','redação','média_geral','latitude','longitude']]
+notas = ['ciências_da_natureza', 'ciências_humanas', 'linguagens_e_códigos', 'matemática', 'redação']
+resultados_escolas['media_notas'] = resultados_escolas[notas].mean(axis=1)
+
+# 🧼 Remove escolas sem nota
+resultados_escolas = resultados_escolas.dropna(subset=['media_notas'])
+
+# 🧭 Define tipo de escola
+def tipo_escola(cat):
+    if cat in ['Federal', 'Estadual', 'Municipal']:
+        return 'Publica'
+    elif cat == 'Privada':
+        return 'Privada'
+    else:
+        return 'Outros'
+
+resultados_escolas['tipo_escola'] = resultados_escolas['categoria_administrativa'].apply(tipo_escola)
+
+# 🎯 Calcula percentil dentro de cada grupo
+resultados_escolas['percentil'] = resultados_escolas.groupby('tipo_escola')['media_notas'].rank(pct=True) * 100
+resultados_escolas['percentil'] = resultados_escolas['percentil'].round(1)
+
+# 🏆 Cria ranking (quanto maior o percentil, melhor)
+resultados_escolas['ranking'] = resultados_escolas.groupby('tipo_escola')['percentil'].rank(ascending=False).astype(int)
+
+def rating_por_percentil(percentil):
+    if percentil >= 95:
+        return '⭐⭐⭐⭐⭐⭐'
+    elif percentil >= 80:
+        return '⭐⭐⭐⭐⭐'
+    elif percentil >= 60:
+        return '⭐⭐⭐⭐'
+    elif percentil >= 40:
+        return '⭐⭐⭐'
+    elif percentil >= 20:
+        return '⭐⭐'
+    else:
+        return '⭐'
+
+resultados_escolas['rating'] = resultados_escolas['percentil'].apply(rating_por_percentil)
+
+def icone_por_percentil(percentil):
+    if percentil >= 95:
+        return '👑'
+    elif percentil >= 80:
+        return '🥇'
+    elif percentil >= 60:
+        return '🥈'
+    elif percentil >= 40:
+        return '🥉'
+    elif percentil >= 20:
+        return '⚠️'
+    else:
+        return '❌'
+
+resultados_escolas['icone_ranking'] = resultados_escolas['percentil'].apply(icone_por_percentil)
+
+
+
+
+resultados_escolas = resultados_escolas[['ranking','rating','escola','categoria_administrativa','porte_da_escola','endereço','bairro', 'telefone','ciências_da_natureza','ciências_humanas','linguagens_e_códigos','matemática','redação','média_geral','percentil','latitude','longitude','icone_ranking']]
 
 
 st.markdown(
@@ -275,7 +319,7 @@ st.divider()
 
 
 st.markdown(
-    "<h4 style='text-align: left; color: #DDD; font-weight: 600;'>⭐ Encontre a melhor escola da sua região</h5>",
+    "<h4 style='text-align: left; color: #DDD; font-weight: 600;'>⭐ Encontre a melhor escola da sua região</h4>",
     unsafe_allow_html=True
 )
 
@@ -284,44 +328,107 @@ cores_categoria = {
     'Federal': [0, 128, 255],
     'Estadual': [0, 200, 0],
     'Municipal': [255, 165, 0],
-    'Privada': [255, 0, 0]
+    'Privada': [255, 255, 255]
 }
 
-# 🧠 Função para atribuir cor com base na categoria
 def cor_por_categoria(categoria):
-    return cores_categoria.get(categoria, [100, 100, 100])  # cor padrão cinza
+    return cores_categoria.get(categoria, [100, 100, 100])  # cinza padrão
 
 # 🧼 Conversão de coordenadas
 resultados_escolas['latitude'] = pd.to_numeric(resultados_escolas['latitude'], errors='coerce')
 resultados_escolas['longitude'] = pd.to_numeric(resultados_escolas['longitude'], errors='coerce')
 resultados_escolas = resultados_escolas.dropna(subset=['latitude', 'longitude'])
 
-# 🎯 Filtro por dependência administrativa
+# 🎯 Filtro por categoria administrativa
 opcoes_dependencia = resultados_escolas['categoria_administrativa'].dropna().unique().tolist()
 dependencia_selecionada = st.selectbox("Filtrar por categoria administrativa:", opcoes_dependencia)
-
-# 🔍 Aplicando o filtro ao DataFrame
 resultados_escolas = resultados_escolas[resultados_escolas['categoria_administrativa'] == dependencia_selecionada]
+
+# 🏘️ Filtro por bairro com opção "Todos os bairros"
+if 'bairro' in resultados_escolas.columns:
+    opcoes_bairro = sorted(resultados_escolas['bairro'].dropna().unique().tolist())
+    opcoes_bairro.insert(0, "Todos os bairros")
+    bairro_selecionado = st.selectbox("Filtrar por bairro:", opcoes_bairro)
+    if bairro_selecionado != "Todos os bairros":
+        resultados_escolas = resultados_escolas[resultados_escolas['bairro'] == bairro_selecionado]
+
+cep_usuario = st.text_input("Digite seu CEP:")
+raio_km = st.slider("Escolha o raio de busca (km):", min_value=1, max_value=20, value=5)
+
+import requests
+
+def geocodificar_cep(cep, chave_api):
+    url = f"https://maps.googleapis.com/maps/api/geocode/json?address={cep}&key={chave_api}"
+    resposta = requests.get(url)
+    dados = resposta.json()
+
+    if dados['status'] == 'OK':
+        localizacao = dados['results'][0]['geometry']['location']
+        return localizacao['lat'], localizacao['lng']
+    else:
+        return None, None
+
+chave_api_google = "AIzaSyD3UQjyOH4Ot4uQ6Qd9ge6vpfP0aRx0ro8"  # substitua pela sua chave real
+
+if cep_usuario:
+    lat_usuario, lon_usuario = geocodificar_cep(cep_usuario, chave_api_google)
+    if lat_usuario and lon_usuario:
+        st.success(f"Localização encontrada: Latitude {lat_usuario:.5f}, Longitude {lon_usuario:.5f}")
+    else:
+        st.error("Não foi possível localizar o CEP. Verifique se está correto.")
+
+def calcular_distancia_km(lat1, lon1, lat2, lon2):
+    R = 6371  # raio da Terra em km
+    lat1_rad, lon1_rad = np.radians(lat1), np.radians(lon1)
+    lat2_rad, lon2_rad = np.radians(lat2), np.radians(lon2)
+
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+
+    a = np.sin(dlat / 2)**2 + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2)**2
+    c = 2 * np.arcsin(np.sqrt(a))
+    distancia = R * c
+    return distancia
+
+resultados_escolas['distancia_km'] = resultados_escolas.apply(
+    lambda row: calcular_distancia_km(lat_usuario, lon_usuario, row['latitude'], row['longitude']),
+    axis=1
+)
 
 
 
 # 🎨 Aplicando cores
 resultados_escolas['cor'] = resultados_escolas['categoria_administrativa'].apply(cor_por_categoria)
 
-# 🔘 Seleção de colunas para exibir no marcador
-colunas_disponiveis = [col for col in resultados_escolas.columns if col not in ['latitude', 'longitude', 'cor']]
+# 🔘 Seleção de colunas para exibir no marcador (omitindo 'Escola')
+colunas_disponiveis = [col for col in resultados_escolas.columns if col not in ['latitude', 'longitude', 'cor', 'escola']]
 colunas_selecionadas = st.multiselect("Selecione as colunas para exibir no marcador:", colunas_disponiveis)
 
-# 🧠 Criando o label
 def gerar_label(row):
-    return "<br>".join([f"<b>{col}:</b> {row[col]}" for col in colunas_selecionadas])
+    # Nome da escola + rating (sempre presente)
+    escola = row.get('escola', 'Escola desconhecida')
+    rating = row.get('rating', 'N/A')
+    partes = [f"<b>Escola:</b> {escola} ({rating})"]
 
+    # Adiciona colunas selecionadas pelo usuário
+    for col in colunas_selecionadas:
+        valor = row.get(col, '')
+        if pd.notnull(valor):
+            partes.append(f"<b>{col}:</b> {valor}")
+
+    return "<br>".join(partes)
+
+# Gera a coluna 'label' com base na função
 resultados_escolas['label'] = resultados_escolas.apply(gerar_label, axis=1)
+
+
+escolas_proximas = resultados_escolas[resultados_escolas['distancia_km'] <= raio_km]
+
 
 # 🗺️ Criando o mapa
 layer = pdk.Layer(
     "ScatterplotLayer",
-    data=resultados_escolas,
+    data=escolas_proximas,
     get_position='[longitude, latitude]',
     get_radius=100,
     get_color='cor',
@@ -334,9 +441,9 @@ tooltip = {
 }
 
 view_state = pdk.ViewState(
-    latitude=resultados_escolas['latitude'].mean(),
-    longitude=resultados_escolas['longitude'].mean(),
-    zoom=10
+    latitude=lat_usuario,
+    longitude=lon_usuario,
+    zoom=12
 )
 
 st.pydeck_chart(pdk.Deck(
@@ -344,4 +451,7 @@ st.pydeck_chart(pdk.Deck(
     initial_view_state=view_state,
     tooltip=tooltip
 ))
+
+escolas_proximas.drop('cor', axis=1, inplace=True)
+st.dataframe(escolas_proximas)
 

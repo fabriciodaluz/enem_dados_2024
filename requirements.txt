@@ -1,3 +1,6 @@
 # Exemplo de requirements.txt
 streamlit
 pandas
+numpy
+seaborn
+matplotlib

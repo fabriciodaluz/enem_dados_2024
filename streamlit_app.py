@@ -13,8 +13,6 @@ st.markdown(
     """
 )
 
-if st.button("Faça a festa!"):
-    st.balloons()
 dados_escolas = pd.read_csv('Análise - Tabela da lista das escolas - Detalhado.csv')
 resultados = pd.read_csv('RESULTADOS_SP_SAO_PAULO_2024.csv')
 
@@ -31,12 +29,9 @@ resultados_escolas = resultados_escolas.dropna(subset=['latitude', 'longitude'])
 # Converte latitude e longitude para float, tratando erros
 resultados_escolas['latitude'] = pd.to_numeric(resultados_escolas['latitude'], errors='coerce')
 resultados_escolas['longitude'] = pd.to_numeric(resultados_escolas['longitude'], errors='coerce')
+resultados_escolas = resultados_escolas.rename(columns={'nu_nota_cn': 'ciências_da_natureza','nu_nota_ch':'ciências_humanas','nu_nota_lc':'linguagens e códigos','nu_nota_mt':'matemática','nu_nota_redacao':'redação'})
 
 st.dataframe(resultados_escolas)
-
-import streamlit as st
-import pandas as pd
-import pydeck as pdk
 
 # 🔧 Mapeamento de cores por categoria
 cores_categoria = {

@@ -29,7 +29,46 @@ resultados_escolas = resultados_escolas.dropna(subset=['latitude', 'longitude'])
 # Converte latitude e longitude para float, tratando erros
 resultados_escolas['latitude'] = pd.to_numeric(resultados_escolas['latitude'], errors='coerce')
 resultados_escolas['longitude'] = pd.to_numeric(resultados_escolas['longitude'], errors='coerce')
-resultados_escolas = resultados_escolas.rename(columns={'nu_nota_cn': 'ciências_da_natureza','nu_nota_ch':'ciências_humanas','nu_nota_lc':'linguagens e códigos','nu_nota_mt':'matemática','nu_nota_redacao':'redação'})
+resultados_escolas = resultados_escolas.rename(columns={'nu_nota_cn': 'ciências_da_natureza','nu_nota_ch':'ciências_humanas','nu_nota_lc':'linguagens_e_códigos','nu_nota_mt':'matemática','nu_nota_redacao':'redação'})
+
+colunas_para_converter = [
+    'ciências_da_natureza',
+    'ciências_humanas',
+    'linguagens_e_códigos',
+    'matemática',
+    'redação'
+]
+
+for coluna in colunas_para_converter:
+    resultados_escolas[coluna] = pd.to_numeric(resultados_escolas[coluna], errors='coerce')
+
+colunas_para_arredondar = [
+    'ciências_da_natureza',
+    'ciências_humanas',
+    'linguagens_e_códigos',
+    'matemática',
+    'redação'
+]
+
+# Arredondando para 2 casas decimais
+resultados_escolas[colunas_para_arredondar] = resultados_escolas[colunas_para_arredondar].round(2)
+
+colunas_notas = [
+    'ciências_da_natureza',
+    'ciências_humanas',
+    'linguagens_e_códigos',
+    'matemática',
+    'redação'
+]
+
+# Criando a coluna 'media_geral'
+resultados_escolas['média_geral'] = resultados_escolas[colunas_notas].mean(axis=1).round(2)
+resultados_escolas = resultados_escolas.sort_values(by='média_geral', ascending=False)
+resultados_escolas.reset_index(drop=True, inplace=True)
+resultados_escolas.index += 1
+
+resultados_escolas = resultados_escolas[['escola','dependência_administrativa','porte_da_escola','endereço','telefone','ciências_da_natureza','ciências_humanas','linguagens_e_códigos','matemática','redação','média_geral','latitude','longitude']]
+
 
 st.dataframe(resultados_escolas)
 
@@ -50,8 +89,17 @@ resultados_escolas['latitude'] = pd.to_numeric(resultados_escolas['latitude'], e
 resultados_escolas['longitude'] = pd.to_numeric(resultados_escolas['longitude'], errors='coerce')
 resultados_escolas = resultados_escolas.dropna(subset=['latitude', 'longitude'])
 
+# 🎯 Filtro por dependência administrativa
+opcoes_dependencia = resultados_escolas['dependência_administrativa'].dropna().unique().tolist()
+dependencia_selecionada = st.selectbox("Filtrar por dependência administrativa:", opcoes_dependencia)
+
+# 🔍 Aplicando o filtro ao DataFrame
+resultados_escolas = resultados_escolas[resultados_escolas['dependência_administrativa'] == dependencia_selecionada]
+
+
+
 # 🎨 Aplicando cores
-resultados_escolas['cor'] = resultados_escolas['categoria_administrativa'].apply(cor_por_categoria)
+resultados_escolas['cor'] = resultados_escolas['dependência_administrativa'].apply(cor_por_categoria)
 
 # 🔘 Seleção de colunas para exibir no marcador
 colunas_disponiveis = [col for col in resultados_escolas.columns if col not in ['latitude', 'longitude', 'cor']]

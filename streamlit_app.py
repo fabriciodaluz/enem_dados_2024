@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pydeck as pdk
 
-st.title("Dados Enem 2024 São Paulo 📝")
+st.title("Dados Enem 2024 Cidade de São Paulo 📝")
 st.markdown(
     """ 
     Verifique aqui as notas da sua escola. 
@@ -17,6 +17,8 @@ dados_escolas = pd.read_csv('Análise - Tabela da lista das escolas - Detalhado.
 resultados = pd.read_csv('RESULTADOS_SP_SAO_PAULO_2024.csv')
 
 dados_escolas.columns = dados_escolas.columns.str.lower().str.replace(' ', '_')
+
+st.dataframe(dados_escolas)
 resultados.columns = resultados.columns.str.lower().str.replace(' ', '_')
 #esultados.groupby
 
@@ -67,7 +69,7 @@ resultados_escolas = resultados_escolas.sort_values(by='média_geral', ascending
 resultados_escolas.reset_index(drop=True, inplace=True)
 resultados_escolas.index += 1
 
-resultados_escolas = resultados_escolas[['escola','dependência_administrativa','porte_da_escola','endereço','telefone','ciências_da_natureza','ciências_humanas','linguagens_e_códigos','matemática','redação','média_geral','latitude','longitude']]
+resultados_escolas = resultados_escolas[['escola','categoria_administrativa','porte_da_escola','endereço','telefone','ciências_da_natureza','ciências_humanas','linguagens_e_códigos','matemática','redação','média_geral','latitude','longitude']]
 
 
 st.dataframe(resultados_escolas)
@@ -90,16 +92,16 @@ resultados_escolas['longitude'] = pd.to_numeric(resultados_escolas['longitude'],
 resultados_escolas = resultados_escolas.dropna(subset=['latitude', 'longitude'])
 
 # 🎯 Filtro por dependência administrativa
-opcoes_dependencia = resultados_escolas['dependência_administrativa'].dropna().unique().tolist()
-dependencia_selecionada = st.selectbox("Filtrar por dependência administrativa:", opcoes_dependencia)
+opcoes_dependencia = resultados_escolas['categoria_administrativa'].dropna().unique().tolist()
+dependencia_selecionada = st.selectbox("Filtrar por categoria administrativa:", opcoes_dependencia)
 
 # 🔍 Aplicando o filtro ao DataFrame
-resultados_escolas = resultados_escolas[resultados_escolas['dependência_administrativa'] == dependencia_selecionada]
+resultados_escolas = resultados_escolas[resultados_escolas['categoria_administrativa'] == dependencia_selecionada]
 
 
 
 # 🎨 Aplicando cores
-resultados_escolas['cor'] = resultados_escolas['dependência_administrativa'].apply(cor_por_categoria)
+resultados_escolas['cor'] = resultados_escolas['categoria_administrativa'].apply(cor_por_categoria)
 
 # 🔘 Seleção de colunas para exibir no marcador
 colunas_disponiveis = [col for col in resultados_escolas.columns if col not in ['latitude', 'longitude', 'cor']]

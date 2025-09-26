@@ -428,18 +428,6 @@ else:
     longitude_mapa = resultados_escolas['longitude'].mean()
 
 
-
-
-
-# 🔘 Seleção de colunas para exibir no marcador (omitindo 'Escola')
-colunas_disponiveis = [col for col in resultados_escolas.columns if col not in ['latitude', 'longitude',  'escola']]
-colunas_selecionadas = st.multiselect("Selecione as colunas para exibir no marcador:", colunas_disponiveis)
-
-
-
-
-
-
 # 🗺️ Criando o mapa
 layer = pdk.Layer(
     "ScatterplotLayer",

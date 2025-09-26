@@ -369,7 +369,7 @@ def geocodificar_cep(cep, chave_api):
     else:
         return None, None
 
-chave_api_google = "AIzaSyD3UQjyOH4Ot4uQ6Qd9ge6vpfP0aRx0ro8"  # substitua pela sua chave real
+chave_api_google = st.secrets["api_key"]  # substitua pela sua chave real
 
 if cep_usuario:
     lat_usuario, lon_usuario = geocodificar_cep(cep_usuario, chave_api_google)

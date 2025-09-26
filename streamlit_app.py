@@ -334,6 +334,7 @@ cores_categoria = {
 def cor_por_categoria(categoria):
     return cores_categoria.get(categoria, [100, 100, 100])  # cinza padrão
 
+
 # 🧼 Conversão de coordenadas
 resultados_escolas['latitude'] = pd.to_numeric(resultados_escolas['latitude'], errors='coerce')
 resultados_escolas['longitude'] = pd.to_numeric(resultados_escolas['longitude'], errors='coerce')
@@ -390,39 +391,53 @@ def calcular_distancia_km(lat1, lon1, lat2, lon2):
     distancia = R * c
     return distancia
 
-resultados_escolas['distancia_km'] = resultados_escolas.apply(
-    lambda row: calcular_distancia_km(lat_usuario, lon_usuario, row['latitude'], row['longitude']),
-    axis=1
-)
-
-
-
 # 🎨 Aplicando cores
 resultados_escolas['cor'] = resultados_escolas['categoria_administrativa'].apply(cor_por_categoria)
 
 # 🔘 Seleção de colunas para exibir no marcador (omitindo 'Escola')
-colunas_disponiveis = [col for col in resultados_escolas.columns if col not in ['latitude', 'longitude', 'cor', 'escola']]
+colunas_disponiveis = [col for col in resultados_escolas.columns if col not in ['latitude', 'longitude', 'escola']]
 colunas_selecionadas = st.multiselect("Selecione as colunas para exibir no marcador:", colunas_disponiveis)
 
+# 🧠 Gerar label com rating
 def gerar_label(row):
-    # Nome da escola + rating (sempre presente)
     escola = row.get('escola', 'Escola desconhecida')
     rating = row.get('rating', 'N/A')
     partes = [f"<b>Escola:</b> {escola} ({rating})"]
-
-    # Adiciona colunas selecionadas pelo usuário
     for col in colunas_selecionadas:
         valor = row.get(col, '')
         if pd.notnull(valor):
             partes.append(f"<b>{col}:</b> {valor}")
+    return f"<div style='font-size:12px'>{'<br>'.join(partes)}</div>"
 
-    return "<br>".join(partes)
-
-# Gera a coluna 'label' com base na função
 resultados_escolas['label'] = resultados_escolas.apply(gerar_label, axis=1)
 
 
-escolas_proximas = resultados_escolas[resultados_escolas['distancia_km'] <= raio_km]
+
+
+if cep_usuario and lat_usuario and lon_usuario:
+    resultados_escolas['distancia_km'] = resultados_escolas.apply(
+        lambda row: calcular_distancia_km(lat_usuario, lon_usuario, row['latitude'], row['longitude']),
+        axis=1
+    )
+    escolas_proximas = resultados_escolas[resultados_escolas['distancia_km'] <= raio_km]
+    latitude_mapa = lat_usuario
+    longitude_mapa = lon_usuario
+else:
+    escolas_proximas = resultados_escolas.copy()
+    latitude_mapa = resultados_escolas['latitude'].mean()
+    longitude_mapa = resultados_escolas['longitude'].mean()
+
+
+
+
+
+# 🔘 Seleção de colunas para exibir no marcador (omitindo 'Escola')
+colunas_disponiveis = [col for col in resultados_escolas.columns if col not in ['latitude', 'longitude',  'escola']]
+colunas_selecionadas = st.multiselect("Selecione as colunas para exibir no marcador:", colunas_disponiveis)
+
+
+
+
 
 
 # 🗺️ Criando o mapa
@@ -431,7 +446,7 @@ layer = pdk.Layer(
     data=escolas_proximas,
     get_position='[longitude, latitude]',
     get_radius=100,
-    get_color='cor',
+    get_color= 'cor',
     pickable=True
 )
 
@@ -441,8 +456,8 @@ tooltip = {
 }
 
 view_state = pdk.ViewState(
-    latitude=lat_usuario,
-    longitude=lon_usuario,
+    latitude=latitude_mapa,
+    longitude=longitude_mapa,
     zoom=12
 )
 
@@ -453,5 +468,6 @@ st.pydeck_chart(pdk.Deck(
 ))
 
 escolas_proximas.drop('cor', axis=1, inplace=True)
+escolas_proximas.drop('label', axis=1, inplace=True)
 st.dataframe(escolas_proximas)
 
